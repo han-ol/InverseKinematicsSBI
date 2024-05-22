@@ -15,6 +15,6 @@ jobs:
           fetch-depth: 0
       - uses: spyoungtech/mirror-action@v0.7.0
         with:
-          REMOTE: "https://codeberg.org/Tuxilio/sync-test.git"
+          REMOTE: "https://codeberg.org/han-ol/InverseKinematicsSBI.git"
           GIT_USERNAME: iksbi-penguin-bot
           GIT_PASSWORD: ${{ secrets.GIT_PASSWORD }}
