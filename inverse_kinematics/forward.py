@@ -2,14 +2,6 @@ import numpy as np
 import scipy
 
 
-# specify prior
-# specify segment lengths
-
-# sample_prior(prior_spec)
-# eval_prior(prior_spec)
-
-# forward(prior_samples, segment_lengths)
-#  component (start, parameter)
 class RobotArm():
 
     def __init__(self, components):
@@ -95,24 +87,5 @@ class Joint():
 
         return coord
 
-# sample posterior
-#  needs prior to sample and evaluate
-#  is hand-crafted to reparameterize problem given by forward
 
 
-
-
-
-if __name__ == "__main__":
-    print("Testing IK: forward component")
-    # to something like test.py
-
-    n_arms = 100
-    start_coord = np.zeros((n_arms,3))  #np.random.normal(size=(5,3))
-    theta = np.random.normal(loc=0, scale=[0.25,0.5,0.5,0.5], size=(n_arms,4))
-    r = Rail()
-    j1 = Joint(0.5)
-    j2 = Joint(0.5)
-    j3 = Joint(1.0)
-    arm = RobotArm([r,j1,j2,j3])
-    coords = arm.forward(theta, start_coord, only_end=False)
