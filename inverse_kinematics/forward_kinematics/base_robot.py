@@ -7,6 +7,10 @@ from inverse_kinematics.forward_kinematics.utils import affine_compo
 
 
 class Robot(ABC):
+    """
+    Base Class for all robots to describe the forward kinematics.
+
+    """
 
     @abstractmethod
     def forward_kinematics(self, params, return_intermediates=False):
@@ -39,11 +43,12 @@ class Robot(ABC):
             The parameters indicated by parameter indices.
         rotation_form :
             The rotation formalism to use for the forward kinematics,
-            where no means just the position is returned. If rotation_form is not None.
-            The pose is the position with the rotation formalism appended as (3 + d_rot) vector.
-            "quaternion" uses the quaternion representation as a 4D vector.
-            "vector" uses the rotation vector representation as a 3D vector.
-            "matrix" uses the flatted matrix itself as a 9D vector.
+            where `rotation_form=None` means just the position is returned. If rotation_form is not None,
+            the pose is the position with the rotation formalism appended as (3 + d_rot) vector.
+            "quaternion" uses the quaternion representation as a 4D vector (d_rot=4).
+            "vector" uses the rotation vector representation as a 3D vector (d_rot=3).
+            "matrix" uses the flatted matrix itself as a 9D vector (d_rot=9).
+            None uses no rotation representation (d_rot=0).
         return_intermediates : bool
             If true the poses for the intermediate stages are also returned.
 
@@ -70,7 +75,7 @@ class Robot(ABC):
             rot_mats_flat = roma.unitquat_to_rotmat(orientations).flatten(start_dim=-2)
             pose = torch.concat((positions, rot_mats_flat), dim=-1)
         else:
-            raise ValueError(f"rotation_from must take one of {[None, 'quaternion', 'vector', 'matrix']}")
+            raise ValueError(f"rotation_form must take one of {[None, 'quaternion', 'vector', 'matrix']}")
 
         if is_numpy:
             return pose.detach().numpy()
@@ -85,7 +90,7 @@ class Robot(ABC):
         params : torch.Tensor of shape (n_samples, n_params)
             The parameters indicated by parameter indices.
         return_angle :
-            If true the angles around z are returned.
+            If true the angles around z is appended to the pose.
         return_intermediates : bool
             If true the poses for the intermediate stages are also returned.
 
@@ -138,6 +143,15 @@ class Robot(ABC):
 
 
 class KinematicChain(Robot):
+    """
+    Wrapper class to encode a kinematic chain of robots.
+
+    Attributes
+    ----------
+    components : list[Robot]
+        A list of robots to define the kinematic chain.
+
+    """
 
     def __init__(self, components):
         self.components = components
