@@ -1,2 +1,5 @@
 **/__pycache__
 *.pdf
+*.egg-info
+**/.ipynb_checkpoints
+*.sif

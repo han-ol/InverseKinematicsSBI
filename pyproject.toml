@@ -1,0 +1,18 @@
+[project]
+name = "inverse-kinematics-sbi"
+version = "0.0.1"
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+]
+description = "Inverse kinematics benchmarks for simulation-based inference"
+
+[tool.black]
+line-length = 120
+target-version = ["py39", "py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+multi_line_output = 3
