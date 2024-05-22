@@ -36,32 +36,33 @@ def forward_dh(dh_tables, return_intermediates=False):
 
     Returns
     -------
-    positions : torch.Tensor of shape (n_samples, 3) or (n_joints, n_samples, 3)
+    positions : torch.Tensor of shape (n_samples, 3) or (n_samples, n_joints, 3)
         The position of the end effector in the base frame.
-    orientations : torch.Tensor of shape (n_samples, 4) or (n_joints, n_samples, 4)
+    orientations : torch.Tensor of shape (n_samples, 4) or (n_samples, n_joints, 4)
         The orientation of the end effector in the base frame.
     """
     n_samples = dh_tables.shape[0]
     n_joints = dh_tables.shape[1]
+    init_dict = {'device':dh_tables.device, 'dtype':dh_tables.dtype}
 
-    trans_0_to_i = torch.zeros((n_samples, 3), device=dh_tables.device)
-    rot_0_to_i = roma.rotvec_to_unitquat(torch.zeros((n_samples, 3), device=dh_tables.device))
+    trans_0_to_i = torch.zeros((n_samples, 3), **init_dict)
+    rot_0_to_i = roma.rotvec_to_unitquat(torch.zeros((n_samples, 3), **init_dict))
 
     if return_intermediates:
-        intermediate_trans = torch.zeros((n_joints, n_samples, 3), device=dh_tables.device)
-        intermediate_rot = torch.zeros((n_joints, n_samples, 4), device=dh_tables.device)
+        intermediate_trans = torch.zeros((n_samples, n_joints, 3), **init_dict)
+        intermediate_rot = torch.zeros((n_samples, n_joints, 4), **init_dict)
 
     for i in range(n_joints):
-        trans_z = dh_tables[:, i, 0].reshape(-1, 1) * torch.tensor([[0, 0, 1]], device=dh_tables.device)
-        rot_z = roma.rotvec_to_unitquat(dh_tables[:, i, 1].reshape(-1, 1) * torch.tensor([[0, 0, 1]], device=dh_tables.device))
-        trans_x = dh_tables[:, i, 2].reshape(-1, 1) * torch.tensor([[1, 0, 0]], device=dh_tables.device)
-        rot_x = roma.rotvec_to_unitquat(dh_tables[:, i, 3].reshape(-1, 1) * torch.tensor([[1, 0, 0]], device=dh_tables.device))
+        trans_z = dh_tables[:, i, 0].reshape(-1, 1) * torch.tensor([[0, 0, 1]], **init_dict)
+        rot_z = roma.rotvec_to_unitquat(dh_tables[:, i, 1].reshape(-1, 1) * torch.tensor([[0, 0, 1]], **init_dict))
+        trans_x = dh_tables[:, i, 2].reshape(-1, 1) * torch.tensor([[1, 0, 0]], **init_dict)
+        rot_x = roma.rotvec_to_unitquat(dh_tables[:, i, 3].reshape(-1, 1) * torch.tensor([[1, 0, 0]], **init_dict))
         trans_i_to_i_plus, rot_i_to_i_plus = affine_compo(trans_z, rot_z, trans_x, rot_x)
         trans_0_to_i, rot_0_to_i = affine_compo(trans_0_to_i, rot_0_to_i, trans_i_to_i_plus, rot_i_to_i_plus)
 
         if return_intermediates:
-            intermediate_trans[i] = trans_0_to_i
-            intermediate_rot[i] = rot_0_to_i
+            intermediate_trans[:, i, :] = trans_0_to_i
+            intermediate_rot[:, i, :] = rot_0_to_i
 
     if return_intermediates:
         return intermediate_trans, intermediate_rot

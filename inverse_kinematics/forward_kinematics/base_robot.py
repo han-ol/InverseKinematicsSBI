@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import roma
 import torch
 
-from forward_kinematics.utils import affine_compo
+from inverse_kinematics.forward_kinematics.utils import affine_compo
 
 
 class Robot(ABC):
@@ -21,10 +21,10 @@ class Robot(ABC):
 
         Returns
         -------
-        positions : torch.Tensor of shape (n_samples, 3) or (n_stages, n_samples, 3)
+        positions : torch.Tensor of shape (n_samples, 3) or (n_samples, n_stages, 3)
             The position of the end effector in the base frame for each parameter.
             If return_intermediates is true also returns intermediate position.
-        orientation : torch.Tensor of shape (n_samples, 4) or (n_stages, n_samples, 4)
+        orientation : torch.Tensor of shape (n_samples, 4) or (n_samples, n_stages, 4)
             The orientation of the end effector in the base frame for each parameter expressed as a quaternion.
             If return_intermediates is true also returns intermediate orientations.
         """
@@ -49,7 +49,7 @@ class Robot(ABC):
 
         Returns
         -------
-        poses : torch.Tensor of shape (n_samples, 3 + d_rot) or (n_samples, 3 + d_rot)
+        poses : torch.Tensor of shape (n_samples, 3 + d_rot) or (n_samples, n_stages, 3 + d_rot)
             the pose of the end effector from the base frame for each parameter.
             If return_intermediates is true also returns the pose of every joint.
         """
@@ -91,7 +91,7 @@ class Robot(ABC):
 
         Returns
         -------
-        poses : torch.Tensor of shape (n_samples, 2) or (n_samples, 2 + 1)
+        poses : torch.Tensor of shape (n_samples, 2+d_rot) or (n_samples, n_stages, 2+d_rot)
             the pose of the end effector from the base frame for each parameter.
             If return_intermediates is true also returns the pose of every joint.
         """
@@ -148,8 +148,8 @@ class KinematicChain(Robot):
         param_index = 0
 
         if return_intermediates:
-            trans_intermediate = torch.zeros((0, len(params), 3), device=params.device, dtype=params.dtype)
-            rot_intermediate = torch.zeros((0, len(params), 4), device=params.device, dtype=params.dtype)
+            trans_intermediate = torch.zeros((len(params), 0, 3), device=params.device, dtype=params.dtype)
+            rot_intermediate = torch.zeros((len(params), 0, 4), device=params.device, dtype=params.dtype)
 
         for robot in self.components:
             trans_new, rot_new = robot.forward_kinematics(
@@ -158,10 +158,10 @@ class KinematicChain(Robot):
             )
             if return_intermediates:
                 trans_new_base, rot_new_base = affine_compo(trans_total[None, ...], rot_total[None, ...], trans_new, rot_new)
-                trans_intermediate = torch.cat((trans_intermediate, trans_new_base), dim=0)
-                rot_intermediate = torch.cat((rot_intermediate, rot_new_base), dim=0)
-                trans_total = trans_new_base[-1]
-                rot_total = rot_new_base[-1]
+                trans_intermediate = torch.cat((trans_intermediate, trans_new_base), dim=1)
+                rot_intermediate = torch.cat((rot_intermediate, rot_new_base), dim=1)
+                trans_total = trans_new_base[:, -1, :]
+                rot_total = rot_new_base[:, -1, :]
             else:
                 trans_total, rot_total = affine_compo(trans_total, rot_total, trans_new, rot_new)
             param_index += robot.get_n_params()

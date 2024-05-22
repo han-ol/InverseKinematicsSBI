@@ -1,5 +1,5 @@
-from forward_kinematics import Rail, Joint, KinematicChain
-from utils.plot import plot_arms_2d
+from inverse_kinematics.forward_kinematics import Rail, Joint, KinematicChain
+from inverse_kinematics.plot import plot_arms_2d
 from inverse_kinematics.solve_abc import draw_abc_samples, distance_end_effector_position
 
 import scipy

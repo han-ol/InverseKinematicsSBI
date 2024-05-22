@@ -1,9 +1,9 @@
 import numpy as np
 import scipy
 
-from forward_kinematics import Rail, Joint, KinematicChain
+from inverse_kinematics.forward_kinematics import Rail, Joint, KinematicChain
 from inverse_kinematics.solve_abc import draw_abc_samples, distance_end_effector_position
-from utils.plot import plot_arms_3d
+from inverse_kinematics.plot import plot_arms_3d
 
 n_arms = 100
 start_coord = np.zeros((n_arms, 3))
@@ -25,7 +25,7 @@ arm = KinematicChain([
 ])
 
 coords = arm.forward(theta, return_intermediates=True)
-plot_arms_3d(coords, 'prior_3d')
+plot_arms_3d(coords[1:], 'prior_3d')
 
 abc_samples = draw_abc_samples(n_arms, arm.forward, prior, distance_end_effector_position, [1.7, 0, 0], tolerance=0.02,
                                verbose=True)

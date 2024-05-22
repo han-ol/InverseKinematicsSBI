@@ -5,9 +5,9 @@ import numpy as np
 
 def plot_arms_2d(coords, fig_name=None):
     plt.figure() 
-    n_arms = coords.shape[1]
+    n_arms = coords.shape[0]
     for i in range(min(n_arms,1000)):
-        plt.plot(coords[:,i,0], coords[:,i,1], ls='-')
+        plt.plot(coords[i, :, 0], coords[i, :, 1], ls='-')
     plt.gca().set_aspect('equal')
     if fig_name is None:
         plt.show()
@@ -18,9 +18,9 @@ def plot_arms_2d(coords, fig_name=None):
 def plot_arms_3d(coords, fig_name=None):
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    n_arms = coords.shape[1]
+    n_arms = coords.shape[0]
     for i in range(min(n_arms,1000)):
-        plt.plot(coords[:, i, 0], coords[:, i, 1], coords[:, i, 2], ls='-')
+        plt.plot(coords[i, :, 0], coords[i, :, 1], coords[i, :, 2], ls='-')
     set_axes_equal(ax)
     if fig_name is None:
         plt.show()

@@ -1,8 +1,7 @@
-import roma
 import torch
 
-from forward_kinematics.base_robot import Robot
-from forward_kinematics.utils import forward_dh
+from inverse_kinematics.forward_kinematics.base_robot import Robot
+from inverse_kinematics.forward_kinematics.utils import forward_dh
 
 
 class DHRobot(Robot):

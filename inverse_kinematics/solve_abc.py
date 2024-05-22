@@ -29,15 +29,16 @@ def draw_abc_samples(n_samples, forward_fun, prior, distance_fun, target, tolera
     # batched collection of samples
     batch_size = 1_000_000
     acc_list = []
-    pbar = tqdm(total=n_samples)
+    if verbose:
+        pbar = tqdm(total=n_samples)
     for i in range(n_propose//batch_size+1):
         proposal_batch = prior(min(n_propose, batch_size))
         acc_mask = abc_reject_mask(forward_fun, proposal_batch, distance_fun, target, tolerance)
         acc_batch = proposal_batch[acc_mask]
         acc_list.append(acc_batch)
-        pbar.update(len(acc_batch))
         if verbose:
-            pbar.set_postfix_str(f'{acc_mask.shape[0]} trials -> {len(acc_batch)} accepted' )
+            pbar.update(len(acc_batch))
+            pbar.set_postfix_str(f'{acc_mask.shape[0]} trials -> {len(acc_batch)} accepted, batch {i} out of max {n_propose//batch_size+1} batches' )
         if sum((len(acc_batch) for acc_batch in acc_list)) > n_samples:
             break
 

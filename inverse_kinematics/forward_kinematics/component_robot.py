@@ -1,7 +1,7 @@
 import roma
 import torch
 
-from forward_kinematics.base_robot import Robot
+from inverse_kinematics.forward_kinematics.base_robot import Robot
 
 
 class Rail(Robot):
@@ -22,7 +22,7 @@ class Rail(Robot):
         orientations[:, 3] = 1
 
         if return_intermediates:
-            return positions[None, ...], orientations[None, ...]
+            return positions[:,  None, :], orientations[:, None, :]
         else:
             return positions, orientations
 
@@ -62,7 +62,7 @@ class Joint(Robot):
         positions_rotated = roma.quat_action(orientations, positions_not_rotated, True)
 
         if return_intermediates:
-            return positions_rotated[None, ...], orientations[None, ...]
+            return positions_rotated[:, None, :], orientations[:, None, :]
         else:
             return positions_rotated, orientations
 
