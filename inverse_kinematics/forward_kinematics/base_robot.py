@@ -39,9 +39,10 @@ class Robot(ABC):
 
         Parameters
         ----------
-        params : torch.Tensor of shape (n_samples, n_params)
-            The parameters indicated by parameter indices.
-        rotation_form :
+        params : torch.Tensor or np.array of shape (n_samples, n_params)
+            The parameters for the robot. Also accepts numpy arrays. In this case
+            a numpy array is returned.
+        rotation_form : str (default None)
             The rotation formalism to use for the forward kinematics,
             where `rotation_form=None` means just the position is returned. If rotation_form is not None,
             the pose is the position with the rotation formalism appended as (3 + d_rot) vector.
@@ -49,14 +50,15 @@ class Robot(ABC):
             "vector" uses the rotation vector representation as a 3D vector (d_rot=3).
             "matrix" uses the flatted matrix itself as a 9D vector (d_rot=9).
             None uses no rotation representation (d_rot=0).
-        return_intermediates : bool
+        return_intermediates : bool (default False)
             If true the poses for the intermediate stages are also returned.
 
         Returns
         -------
-        poses : torch.Tensor of shape (n_samples, 3 + d_rot) or (n_samples, n_stages, 3 + d_rot)
+        poses : torch.Tensor or np.array of shape (n_samples, 3 + d_rot) or (n_samples, n_stages, 3 + d_rot)
             the pose of the end effector from the base frame for each parameter.
             If return_intermediates is true also returns the pose of every joint.
+            If a `params` is a numpy array, then a numpy array is returned.
         """
         is_numpy = not torch.is_tensor(params)
         if is_numpy:
@@ -89,9 +91,9 @@ class Robot(ABC):
         ----------
         params : torch.Tensor of shape (n_samples, n_params)
             The parameters indicated by parameter indices.
-        return_angle :
+        return_angle : bool (default False)
             If true the angles around z is appended to the pose.
-        return_intermediates : bool
+        return_intermediates : bool (default False)
             If true the poses for the intermediate stages are also returned.
 
         Returns
@@ -190,3 +192,37 @@ class KinematicChain(Robot):
 
     def get_param_ranges(self):
         return torch.stack(tuple(robot.get_n_params() for robot in self.components), dim=0)
+
+
+class ConstRobot(Robot):
+    """
+    Class to encode a robot that returns a constant position and orientation.
+
+    Attributes
+    ----------
+    robot : Robot
+        The robot used to compute the constant value.
+    param_value : torch.Tensor or float (default 0)
+        The values of the parameter, that leads to the constant value.
+    """
+
+    def __init__(self, robot, param_value=None):
+        self.robot = robot
+        self.param_value = param_value
+
+    def forward_kinematics(self, params, return_intermediates=False):
+
+        param_value = self.param_value
+        if param_value is None:
+            param_value = 0
+        if not torch.is_tensor(param_value):
+            param_value = torch.full(self.robot.get_n_params(), param_value)
+        new_params = param_value.repeat(len(params), 1)
+
+        return self.robot.forward_kinematics(new_params, return_intermediates)
+
+    def get_n_params(self):
+        return 0
+
+    def get_param_ranges(self):
+        return torch.zeros((0, 2))
