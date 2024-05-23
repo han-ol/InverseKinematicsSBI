@@ -144,7 +144,7 @@ class RobotArm:
                 x, np.maximum(100 * n_samples, 10_000), n_samples_per_batch=100 * n_samples, max_n_batches=max_n_batches
             )
 
-            # Explicitly calculate preimages params_3 and params_4 of x given params_1, params_2
+            # Explicitly calculate preimages param_a and param_b of x given params_1, params_2
             params = self._get_full_params(accepted_red_prior_samples, x)
 
             # Weight the samples by their probability under the prior
@@ -162,15 +162,15 @@ class RobotArm:
             deform_factor = 1 / np.abs(d3f1 * d4f2 - d4f1 * d3f2)
             """
 
-            deform_factor = 1
+            deform_factor = self._get_jacobian_determinant(params, self.forward(params[:-2]))
 
-            weights = self._complement_prior_pdf(params[-2:]) * deform_factor
+            weights = self._complement_prior_pdf(params[-2:])[:, 0] * deform_factor
             num_missing = n_samples - total_accepted
-            accepted_mask = (np.random.binomial(1, weights / np.max(weights)) == 1).flatten()
+            p = weights / np.max(weights)
+            accepted_mask = (np.random.binomial(1, p) == 1).flatten()
             num_accepted = min(accepted_mask.sum(), num_missing)
             if num_accepted > 0:
                 for i in range(len(samples)):
-                    print(i, params[i].shape, params[i][accepted_mask].shape)
                     samples[i][total_accepted : (total_accepted + num_accepted)] = params[i][accepted_mask][
                         :num_accepted
                     ]
@@ -209,22 +209,27 @@ class RobotArm:
         gamma_prime = np.arccos(
             (b**2 + np.linalg.norm(gap, axis=1) ** 2 - a**2) / (2 * b * np.linalg.norm(gap, axis=1))
         )
-        params_3 = np.mod(-z[:, -1] + eta - gamma * np.array([1, -1])[:, None], 2 * np.pi)
-        params_3 = np.where(params_3 > np.pi, params_3 - 2 * np.pi, params_3)
-        params_4 = np.mod(-z[:, -1] - params_3 + eta + gamma_prime * np.array([1, -1])[:, None], 2 * np.pi)
-        params_4 = np.where(params_4 > np.pi, params_4 - 2 * np.pi, params_4)
+        param_a = np.mod(-z[:, -1] + eta - gamma * np.array([1, -1])[:, None], 2 * np.pi)
+        param_a = np.where(param_a > np.pi, param_a - 2 * np.pi, param_a)
+        param_b = np.mod(-z[:, -1] - param_a + eta + gamma_prime * np.array([1, -1])[:, None], 2 * np.pi)
+        param_b = np.where(param_b > np.pi, param_b - 2 * np.pi, param_b)
 
-        # TODO: Randomly choose one of the two options with correct weighting
-        return params_reduced + [params_3[0, :, None], params_4[0, :, None]]
-        """
-        return np.stack(
-            [
-                np.stack([params_1, params_2, params_3[0, :], params_4[0, :]], axis=1),
-                np.stack([params_1, params_2, params_3[1, :], params_4[1, :]], axis=1),
-            ],
-            axis=1,
-        )
-        """
+        # randomly choose one of the two possible solutions
+        selection = np.random.randint(0, 2, size=(z.shape[0]))
+        param_a = np.where(selection, param_a[0], param_a[1])
+        param_b = np.where(selection, param_b[0], param_b[1])
+
+        return params_reduced + [param_a[:, None], param_b[:, None]]
+
+    def _get_jacobian_determinant(self, params, z):
+        la, lb = self.components[-2].length, self.components[-1].length
+
+        dy1da = -la * np.sin(z[:, 2] + params[-2][:, 0]) - lb * np.sin(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
+        dy1db = -lb * np.sin(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
+        dy2da = la * np.cos(z[:, 2] + params[-2][:, 0]) + lb * np.cos(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
+        dy2db = lb * np.cos(z[:, 2] + +params[-2][:, 0] + params[-1][:, 0])
+
+        return 1 / np.abs(dy1da * dy2db - dy2da * dy1db)
 
     def _complement_prior_pdf(self, complement_samples):
         n_components = len(self.components)
