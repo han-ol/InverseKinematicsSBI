@@ -12,15 +12,30 @@ Kruse, J., Ardizzone, L., Rother, C., & Köthe, U. (2021). Benchmarking Invertib
 
 We manage dependencies in `pyproject.toml` and lock them in `requirements.txt` using `pip-compile` from the [pip-tools suite](https://github.com/jazzband/pip-tools). Automated formatting and checks are achieved using `pre-commit`.
 
-TODO: Insert all installation steps with corresponding commands.
 
-For development:
+### For development
 
 1. Set up a new Python environment
-2. Install dependencies using `pip install -r requirements.txt`
-3. Activate pre-commit hooks using `pre-commit install`
+```
+git clone https://codeberg.org/han-ol/InverseKinematicsSBI.git && cd InverseKinematicsSBI
+```
+2. Create enviroment, for example with `conda`
+```
+conda create -n ik-sbi python=3.10 && conda activate ik-sbi
+```
+3. Install dependencies with `pip`
+```
+pip install -r requirements.txt
+pip install pre-commit  # TODO: as extra,optional dependency for development
+```
+4. Activate pre-commit hooks using
+```
+pre-commit install
+```
 
-For adding a dependency:
+TODO: Insert installation steps for pip-tools or optional dependency for development
+
+### For adding a dependency
 
 1. Add it to `pyproject.toml`
 2. Run `pip-compile`
