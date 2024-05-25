@@ -150,18 +150,6 @@ class RobotArm:
             # Weight the samples by their probability under the prior
             # Compute Jacobi determinant of the transformation
 
-            # TODO: Calculate jacobi determinant
-            """
-            a, b = self.components[-2].length, self.components[-1].length
-
-            d3f1 = -a * np.sin(params[:, 1] + params[:, 2]) - b * np.sin(params[:, 1] + params[:, 2] + params[:, 3])
-            d4f1 = -b * np.sin(params[:, 1] + params[:, 2] + params[:, 3])
-            d3f2 = +a * np.cos(params[:, 1] + params[:, 2]) + b * np.cos(params[:, 1] + params[:, 2] + params[:, 3])
-            d4f2 = +b * np.cos(params[:, 1] + params[:, 2] + params[:, 3])
-
-            deform_factor = 1 / np.abs(d3f1 * d4f2 - d4f1 * d3f2)
-            """
-
             deform_factor = self._get_jacobian_determinant(params, self.forward(params[:-2]))
 
             weights = self._complement_prior_pdf(params[-2:])[:, 0] * deform_factor
