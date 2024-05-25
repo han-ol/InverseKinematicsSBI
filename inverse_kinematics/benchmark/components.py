@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import scipy
+from tqdm.autonotebook import tqdm
 
 
 class Component(ABC):
@@ -117,7 +118,7 @@ class RobotArm:
         coords = self.forward(prior_samples, only_end=only_end)
         return prior_samples, coords
 
-    def sample_posterior(self, x, n_samples, max_n_batches=1000):
+    def sample_posterior(self, x, n_samples, max_n_batches=10, M=1000, red_prior_n_samples_per_batch=100_000):
         """Sample from the posterior distribution
 
         Parameters
@@ -137,15 +138,22 @@ class RobotArm:
             array of shape (n_samples, n_params) for each component
         """
         samples = [np.full((n_samples, c.n_params), np.nan) for c in self.components]
-        total_accepted = 0
+        params = [np.zeros((0, c.n_params)) for c in self.components]
+        max_joint_weight = 0
         for i in range(max_n_batches):
             # Sample params_1, params_2 from the prior
             accepted_red_prior_samples = self._sample_reduced_batched(
-                x, np.maximum(100 * n_samples, 10_000), n_samples_per_batch=100 * n_samples, max_n_batches=max_n_batches
+                x,
+                np.maximum(M * n_samples, 10_000),
+                n_samples_per_batch=red_prior_n_samples_per_batch,
+                max_n_batches=10_000,
             )
 
             # Explicitly calculate preimages param_a and param_b of x given params_1, params_2
-            params = self._get_full_params(accepted_red_prior_samples, x)
+            new_params, new_max_joint_weight = self._get_full_params(accepted_red_prior_samples, x)
+            for i in range(len(self.components)):
+                params[i] = np.concatenate([params[i], new_params[i]], axis=0)
+            max_joint_weight = max(max_joint_weight, new_max_joint_weight)
 
             # Weight the samples by their probability under the prior
             # Compute Jacobi determinant of the transformation
@@ -153,20 +161,17 @@ class RobotArm:
             deform_factor = self._get_jacobian_determinant(params, self.forward(params[:-2]))
 
             weights = self._complement_prior_pdf(params[-2:])[:, 0] * deform_factor
-            num_missing = n_samples - total_accepted
-            p = weights / np.max(weights)
+
+            p = weights / max_joint_weight
             accepted_mask = (np.random.binomial(1, p) == 1).flatten()
-            num_accepted = min(accepted_mask.sum(), num_missing)
-            if num_accepted > 0:
+            num_accepted = accepted_mask.sum()
+            print(f"Acceptance rate: {num_accepted/p.shape[0]}, {num_accepted} (of {n_samples}) in this run")
+            if num_accepted >= n_samples:
                 for i in range(len(samples)):
-                    samples[i][total_accepted : (total_accepted + num_accepted)] = params[i][accepted_mask][
-                        :num_accepted
-                    ]
-                total_accepted += num_accepted
-            if total_accepted == n_samples:
+                    samples[i] = params[i][accepted_mask][:n_samples]
                 return samples
         raise RuntimeError(
-            f"""Only {total_accepted} samples could be produced. Please increase n_samples_per_batch or max_n_batches
+            f"""Only {num_accepted} samples could be produced. Please increase M or max_n_batches
             """
         )
 
@@ -202,12 +207,17 @@ class RobotArm:
         param_b = np.mod(-z[:, -1] - param_a + eta + gamma_prime * np.array([1, -1])[:, None], 2 * np.pi)
         param_b = np.where(param_b > np.pi, param_b - 2 * np.pi, param_b)
 
+        deform_factor_1 = self._get_jacobian_determinant([param_a[0, :, None], param_b[0, :, None]], z)
+        deform_factor_2 = self._get_jacobian_determinant([param_a[1, :, None], param_b[1, :, None]], z)
+        weights_1 = self._complement_prior_pdf([param_a[0, :, None], param_b[0, :, None]])[:, 0] * deform_factor_1
+        weights_2 = self._complement_prior_pdf([param_a[1, :, None], param_b[1, :, None]])[:, 0] * deform_factor_2
+        joint_weights = weights_1 + weights_2
         # randomly choose one of the two possible solutions
         selection = np.random.randint(0, 2, size=(z.shape[0]))
         param_a = np.where(selection, param_a[0], param_a[1])
         param_b = np.where(selection, param_b[0], param_b[1])
 
-        return params_reduced + [param_a[:, None], param_b[:, None]]
+        return params_reduced + [param_a[:, None], param_b[:, None]], joint_weights.max()
 
     def _get_jacobian_determinant(self, params, z):
         la, lb = self.components[-2].length, self.components[-1].length
@@ -215,7 +225,7 @@ class RobotArm:
         dy1da = -la * np.sin(z[:, 2] + params[-2][:, 0]) - lb * np.sin(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
         dy1db = -lb * np.sin(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
         dy2da = la * np.cos(z[:, 2] + params[-2][:, 0]) + lb * np.cos(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
-        dy2db = lb * np.cos(z[:, 2] + +params[-2][:, 0] + params[-1][:, 0])
+        dy2db = lb * np.cos(z[:, 2] + params[-2][:, 0] + params[-1][:, 0])
 
         return 1 / np.abs(dy1da * dy2db - dy2da * dy1db)
 
@@ -231,24 +241,26 @@ class RobotArm:
     def _sample_reduced_batched(self, x, n_samples, n_samples_per_batch=100_000, max_n_batches=100):
         samples = [np.full((n_samples, c.n_params), np.nan) for c in self.components[:-2]]
         total_accepted = 0
-        for i in range(max_n_batches):
-            red_prior_samples = self.sample_prior(n_samples_per_batch, n_exclude_last=2)
+        with tqdm(total=n_samples, desc="Sampling from reduced distribution") as pbar:
+            for i in range(max_n_batches):
+                red_prior_samples = self.sample_prior(n_samples_per_batch, n_exclude_last=2)
 
-            # Reject samples for which the end effector is not in range
-            n_missing = n_samples - total_accepted
-            accepted_red_prior_samples = [
-                red_prior_samples[i][self._check_reachable(red_prior_samples, x)][:n_missing]
-                for i in range(len(red_prior_samples))
-            ]
-            num_accepted = accepted_red_prior_samples[0].shape[0]
-            if num_accepted > 0:
-                for i in range(len(accepted_red_prior_samples)):
-                    samples[i][total_accepted : (total_accepted + num_accepted)] = accepted_red_prior_samples[i]
-                total_accepted += num_accepted
-            if total_accepted == n_samples:
-                return samples
+                # Reject samples for which the end effector is not in range
+                n_missing = n_samples - total_accepted
+                accepted_red_prior_samples = [
+                    red_prior_samples[i][self._check_reachable(red_prior_samples, x)][:n_missing]
+                    for i in range(len(red_prior_samples))
+                ]
+                num_accepted = accepted_red_prior_samples[0].shape[0]
+                if num_accepted > 0:
+                    for i in range(len(accepted_red_prior_samples)):
+                        samples[i][total_accepted : (total_accepted + num_accepted)] = accepted_red_prior_samples[i]
+                    total_accepted += num_accepted
+                    pbar.update(num_accepted)
+                if total_accepted == n_samples:
+                    return samples
         raise RuntimeError(
-            f"""Only {total_accepted} samples could be produced. If zero samples were produced,
+            f"""Only {total_accepted} samples from the reduced prior could be produced. If zero samples were produced,
             please ensure that the observation point is reachable for the given lengths.
             If too few samples were produced, please increase n_samples_per_batch or max_n_batches
             """
