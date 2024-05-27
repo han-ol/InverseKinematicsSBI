@@ -118,7 +118,7 @@ class RobotArm:
         coords = self.forward(prior_samples, only_end=only_end)
         return prior_samples, coords
 
-    def sample_posterior(self, x, n_samples, max_n_batches=10, M=1000, red_prior_n_samples_per_batch=100_000):
+    def sample_posterior(self, x, n_samples, max_n_batches=1000, M=1000, red_prior_n_samples_per_batch=100_000):
         """Sample from the posterior distribution
 
         Parameters
@@ -140,35 +140,73 @@ class RobotArm:
         samples = [np.full((n_samples, c.n_params), np.nan) for c in self.components]
         params = [np.zeros((0, c.n_params)) for c in self.components]
         max_joint_weight = 0
+        n_reachable = 0
+        expected_missing = M * n_samples  # initial guess
+
+        # Calculate max_joint_weight
+        param_1_space = np.linspace(-3, 3, 100)
+        param_2_space = np.linspace(-np.pi, np.pi, 100000)
+        xx, yy = np.meshgrid(param_1_space, param_2_space)
+        grid_coords = np.array((xx.ravel(), yy.ravel())).T
+        grid_param_1 = grid_coords[:, 0, None]
+        grid_param_2 = grid_coords[:, 1, None]
+        grid_param_red = [grid_param_1, grid_param_2]
+        grid_filter = self._check_reachable(grid_param_red, x)
+        for i in range(len(grid_param_red)):
+            grid_param_red[i] = grid_param_red[i][grid_filter]
+        _, max_joint_weight = self._get_full_params(grid_param_red, x)
+        del _, param_1_space, param_2_space, xx, yy, grid_param_1, grid_param_2, grid_param_red, grid_filter
+        print("grid", max_joint_weight)
+
         for i in range(max_n_batches):
             # Sample params_1, params_2 from the prior
             accepted_red_prior_samples = self._sample_reduced_batched(
                 x,
-                np.maximum(M * n_samples, 10_000),
+                min(expected_missing, 10_000_000),
                 n_samples_per_batch=red_prior_n_samples_per_batch,
                 max_n_batches=10_000,
             )
+            n_reachable += accepted_red_prior_samples[0].shape[0]
 
             # Explicitly calculate preimages param_a and param_b of x given params_1, params_2
             new_params, new_max_joint_weight = self._get_full_params(accepted_red_prior_samples, x)
-            for i in range(len(self.components)):
-                params[i] = np.concatenate([params[i], new_params[i]], axis=0)
-            max_joint_weight = max(max_joint_weight, new_max_joint_weight)
+            del accepted_red_prior_samples
+            print("batch max joint weight", new_max_joint_weight)
+            if new_max_joint_weight > max_joint_weight:
+                accepted_mask = (
+                    np.random.binomial(1, max_joint_weight / new_max_joint_weight, size=(params[0].shape[0],)) == 1
+                )
+                for i in range(len(self.components)):
+                    params[i] = params[i][accepted_mask]
+
+                del accepted_mask
+                max_joint_weight = new_max_joint_weight
 
             # Weight the samples by their probability under the prior
             # Compute Jacobi determinant of the transformation
 
-            deform_factor = self._get_jacobian_determinant(params, self.forward(params[:-2]))
+            p = self._get_weights(new_params) / max_joint_weight
 
-            weights = self._complement_prior_pdf(params[-2:])[:, 0] * deform_factor
-
-            p = weights / max_joint_weight
             accepted_mask = (np.random.binomial(1, p) == 1).flatten()
-            num_accepted = accepted_mask.sum()
-            print(f"Acceptance rate: {num_accepted/p.shape[0]}, {num_accepted} (of {n_samples}) in this run")
+            del p
+            print("new params", accepted_mask.shape, accepted_mask.sum())
+
+            for i in range(len(self.components)):
+                params[i] = np.concatenate([params[i], new_params[i][accepted_mask]], axis=0)
+
+            del accepted_mask
+
+            num_accepted = params[0].shape[0]
+            acc_rate = num_accepted / n_reachable
+            expected_num = int(n_samples / acc_rate)
+            expected_missing = max(expected_num - n_reachable, 10_000)
+            print(expected_missing)
+            print(
+                f"Acceptance rate: {acc_rate}, {num_accepted} (goal: {n_samples}) in this run. Expected number of needed samples: {expected_missing}"
+            )
             if num_accepted >= n_samples:
                 for i in range(len(samples)):
-                    samples[i] = params[i][accepted_mask][:n_samples]
+                    samples[i] = params[i][:n_samples]
                 return samples
         raise RuntimeError(
             f"""Only {num_accepted} samples could be produced. Please increase M or max_n_batches
@@ -207,10 +245,8 @@ class RobotArm:
         param_b = np.mod(-z[:, -1] - param_a + eta + gamma_prime * np.array([1, -1])[:, None], 2 * np.pi)
         param_b = np.where(param_b > np.pi, param_b - 2 * np.pi, param_b)
 
-        deform_factor_1 = self._get_jacobian_determinant([param_a[0, :, None], param_b[0, :, None]], z)
-        deform_factor_2 = self._get_jacobian_determinant([param_a[1, :, None], param_b[1, :, None]], z)
-        weights_1 = self._complement_prior_pdf([param_a[0, :, None], param_b[0, :, None]])[:, 0] * deform_factor_1
-        weights_2 = self._complement_prior_pdf([param_a[1, :, None], param_b[1, :, None]])[:, 0] * deform_factor_2
+        weights_1 = self._get_weights([param_a[0, :, None], param_b[0, :, None]], z)
+        weights_2 = self._get_weights([param_a[1, :, None], param_b[1, :, None]], z)
         joint_weights = weights_1 + weights_2
         # randomly choose one of the two possible solutions
         selection = np.random.randint(0, 2, size=(z.shape[0]))
@@ -237,6 +273,12 @@ class RobotArm:
             for i in range(n_complements)
         ]
         return np.prod(pdfs, axis=0)
+
+    def _get_weights(self, params, z=None):
+        if z is None:
+            z = self.forward(params[:-2])
+        deform_factor = self._get_jacobian_determinant(params, z)
+        return self._complement_prior_pdf(params[-2:]).flatten() * deform_factor
 
     def _sample_reduced_batched(self, x, n_samples, n_samples_per_batch=100_000, max_n_batches=100):
         samples = [np.full((n_samples, c.n_params), np.nan) for c in self.components[:-2]]
