@@ -32,7 +32,7 @@ coords = arm.forward(theta, only_end=False)
 print(coords.shape)
 plot_arms(coords, 'prior')
 
-abc_samples = draw_abc_samples(1000, arm.forward, prior, distance_end_effector_position, [1.7,0], tolerance=0.05, verbose=True)
+abc_samples = draw_abc_samples(1000, arm.forward, prior, distance_end_effector_position, [1.2,0.3], tolerance=0.05, verbose=True)
 plot_arms(arm.forward(abc_samples, only_end=False), 'abc_samples')
 
 
