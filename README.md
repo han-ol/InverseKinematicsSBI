@@ -1,7 +1,6 @@
  # Inverse Kinematics Benchmark for Simulation-based Inference
 
 Welcome to the repository of the inverse_kinematics_sbi package.  TODO: package name
-
 This is a lightweight library enabling you to flexibly specify a robot arm, compute the forward process, and solve the inverse kinematic problem.
 
 Inverse kinematics was first proposed as a benchmark for simulation-based inference in the following paper:
