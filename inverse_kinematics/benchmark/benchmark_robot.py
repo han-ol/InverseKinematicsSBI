@@ -157,6 +157,23 @@ class BenchmarkRobot:
             """
         )
 
+    def get_maximum_weight(self, y, index_weights):
+
+        # Calculate max_joint_weight
+        param_1_space = np.linspace(-3, 3, 100)
+        param_2_space = np.linspace(-np.pi, np.pi, 100000)
+        xx, yy = np.meshgrid(param_1_space, param_2_space)
+        grid_coords = np.array((xx.ravel(), yy.ravel())).T
+        grid_param_red = np.zeros((grid_coords.shape[0], 4))
+        grid_param_red[:, :2] = grid_coords
+        grid_indices_red = np.tile(np.array([[0, 1]]), (len(grid_coords), 1))
+        grid_filter = self._check_reachable(grid_param_red, grid_indices_red, y)
+        full_params = self._get_full_params(grid_param_red[grid_filter], grid_indices_red[grid_filter], y)
+        indices = [[0, 1], [1, 2], [2, 3]]
+        complement_indices = [[2, 3], [0, 3], [0, 1]]
+        weights = self._get_weights(full_params, indices, complement_indices, index_weights)
+        print("grid", np.max(weights))
+
     def _sample_proposal_distribution(
         self, y, n_samples, n_samples_per_batch=100_000, max_n_batches=100, index_weights=None
     ):
