@@ -1,4 +1,7 @@
 archive
+Makefile
+.env_name
+*.sh
 **/__pycache__
 *.pdf
 *.egg-info
