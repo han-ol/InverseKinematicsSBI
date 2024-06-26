@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from inverse_kinematics.benchmark.benchmark_robot import BenchmarkRobot
+from inverse_kinematics.benchmark_robot import BenchmarkRobot
 from inverse_kinematics.plot import plot_arms
 
 arm = BenchmarkRobot()

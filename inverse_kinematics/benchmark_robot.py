@@ -158,7 +158,6 @@ class BenchmarkRobot:
         )
 
     def get_maximum_weight(self, y, index_weights):
-
         # Calculate max_joint_weight
         param_1_space = np.linspace(-3, 3, 100)
         param_2_space = np.linspace(-np.pi, np.pi, 100000)
