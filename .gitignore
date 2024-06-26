@@ -2,6 +2,13 @@ archive
 Makefile
 .env_name
 *.sh
+
+.tox
+reports
+build
+docs
+venv
+
 **/__pycache__
 *.pdf
 *.egg-info

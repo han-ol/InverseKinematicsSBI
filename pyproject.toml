@@ -1,12 +1,97 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "inverse-kinematics-sbi"
-version = "0.0.1"
+requires-python = ">=3.8"
+dynamic = ["version"]
 dependencies = [
   "numpy",
   "scipy",
   "matplotlib",
 ]
 description = "Inverse kinematics benchmarks for simulation-based inference"
+
+[project.optional-dependencies]
+lint = [
+  "mypy==1.10.1",
+  "black==24.4.2",
+    # "ruff",
+  "pytest==7.4.1",
+]
+test = [
+  "pytest==7.4.1",
+  "pytest-cov==4.1.0",
+  "coverage[toml]==7.3.1",
+  "pytest-sugar",
+  "numpy",
+  "scikit-learn",
+]
+doc = [
+  "sphinx",
+]
+build = [
+]
+dev = [
+  "tox",
+  "inverse-kinematics-sbi[lint]",
+  "inverse-kinematics-sbi[test]",
+  "inverse-kinematics-sbi[doc]",
+  "inverse-kinematics-sbi[build]",
+]
+
+[tool.setuptools_scm]
+
+# [tool.ruff]
+# line-length = 120
+# src = ["src"]
+# extend-exclude = [
+#     "conf.py",
+# ]
+# target-version = "py38"
+# select = ["ALL"]
+# ignore = [
+#     "COM812",   # Conflicts with the formatter
+#     "ISC001",   # Conflicts with the formatter
+#     "ANN101",   # "missing-type-self"
+#     "PT001",    # https://github.com/astral-sh/ruff/issues/8796#issuecomment-1825907715
+#     "PT004",    # https://github.com/astral-sh/ruff/issues/8796#issuecomment-1825907715
+#     "PT005",    # https://github.com/astral-sh/ruff/issues/8796#issuecomment-1825907715
+#     "PT023",    # https://github.com/astral-sh/ruff/issues/8796#issuecomment-1825907715
+# ]
+#
+# [tool.ruff.per-file-ignores]
+# "tests/**" = [
+#     "S101", # Use of `assert` detected
+#     "D103", # Missing docstring in public function
+# ]
+# "**/__init__.py" = [
+#     "F401", # Imported but unused
+#     "F403", # Wildcard imports
+# ]
+# "docs/**" = [
+#     "INP001",   # Requires __init__.py but docs folder is not a package.
+# ]
+#
+# [tool.ruff.lint.pyupgrade]
+# # Preserve types, even if a file imports `from __future__ import annotations`(https://github.com/astral-sh/ruff/issues/5434)
+# keep-runtime-typing = true
+#
+# [tool.ruff.pydocstyle]
+# convention = "google"
+
+[tool.mypy]
+ignore_missing_imports = true
+# disallow_untyped_defs = true # Functions need to be annotated
+warn_unused_ignores = true
+exclude = [
+  "archive",
+  "my-project-\\d+", # Ignore temporary folder created by setuptools when building an sdist
+  "venv.*/",
+  "build/",
+  "dist/",
+]
 
 [tool.black]
 line-length = 120
@@ -16,3 +101,18 @@ target-version = ["py39", "py310"]
 profile = "black"
 line_length = 120
 multi_line_output = 3
+
+[tool.pytest.ini_options]
+addopts = """
+    --import-mode=append
+    --cov=inverse-kinematics-sbi
+    --cov-config=pyproject.toml
+    --cov-report=
+    """
+
+[tool.coverage.paths]
+# Maps coverage measured in site-packages to source files in src
+source = ["src/", ".tox/*/lib/python*/site-packages/"]
+
+[tool.coverage.html]
+directory = "reports/coverage_html"
