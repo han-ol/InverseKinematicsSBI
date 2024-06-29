@@ -33,7 +33,7 @@ class BenchmarkRobot:
 
     def forward_reduced(self, params, indices, only_end=True):
         if not only_end:
-            coords = np.empty((len(params), 4, 3))
+            coords = np.empty((params.shape[0], 4, 3))
 
         operations = [
             lambda pose_: np.stack((pose_[:, 0], pose_[:, 1] + params[:, 0], pose_[:, 2]), axis=1),
@@ -52,7 +52,7 @@ class BenchmarkRobot:
             for i in range(1, 4)
         ]
 
-        pose = np.zeros((len(params), 3))
+        pose = np.zeros((params.shape[0], 3))
 
         for i, operation in enumerate(operations):
             if i in indices:
@@ -142,7 +142,7 @@ class BenchmarkRobot:
             num_missing = n_samples - total_accepted
             p = weights / np.max(weights)
             accepted_mask = (np.random.binomial(1, p) == 1).flatten()
-            print(f"Acceptance Rate: {p.sum()/len(params)}")
+            print(f"Acceptance Rate: {p.sum()/params.shape[0]}")
             n_accepted = min(accepted_mask.sum(), num_missing)
             accepted_params = params[accepted_mask]
             samples[total_accepted : min(total_accepted + n_accepted, n_samples), :] = accepted_params[
@@ -211,7 +211,7 @@ class BenchmarkRobot:
 
     def _check_reachable(self, params, indices, y):
         "Check if the end effector is in range for a batch of paramss and xs."
-        is_reachable = np.full(len(params), False, dtype=bool)
+        is_reachable = np.full(params.shape[0], False, dtype=bool)
         if np.any(np.all(indices == np.array([[0, 1]]), axis=1)):
             is_this_index = np.all(indices == np.array([[0, 1]]), axis=1)
             c = np.linalg.norm(self.forward_reduced(params[is_this_index], np.array([0, 1]))[:, :2] - y, axis=1)
@@ -307,9 +307,9 @@ class BenchmarkRobot:
         l1c2 = self.l[0] * np.cos(params[:, 1])
         l2c23 = self.l[1] * np.cos(np.sum(params[:, 1:3], axis=1))
         l3c234 = self.l[2] * np.cos(np.sum(params[:, 1:4], axis=1))
-        jacobian = np.zeros((len(params), 2, 4))
-        jacobian[:, 0, 0] = np.ones(len(params))
-        jacobian[:, 1, 0] = np.zeros(len(params))
+        jacobian = np.zeros((params.shape[0], 2, 4))
+        jacobian[:, 0, 0] = np.ones(params.shape[0])
+        jacobian[:, 1, 0] = np.zeros(params.shape[0])
         jacobian[:, 0, 1] = l1c2 + l2c23 + l3c234
         jacobian[:, 1, 1] = -(l1s2 + l2s23 + l3s234)
         jacobian[:, 0, 2] = l2c23 + l3c234
@@ -330,7 +330,7 @@ class BenchmarkRobot:
             return np.prod(pdfs[:, indices], axis=1)
 
     def _get_weights(self, params, indices, complement_indices, index_weights):
-        divisor = np.zeros(len(params))
+        divisor = np.zeros(params.shape[0])
         for index, complement_index, index_weight in zip(indices, complement_indices, index_weights):
             divisor += (
                 index_weight
