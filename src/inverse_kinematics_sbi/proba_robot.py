@@ -19,7 +19,7 @@ class ProbaRobot(ABC):
 
     def sample_likelihood(self, params, n_sample=1, keep_dims=False):
         # if keep_dims=True and n_sample=1 returns shape: (len(params), 1, n_params)
-        return # forward kinematics on zero
+        return # forward
 
     def sample_posterior(self, observations, n_sample=1, keep_dims=False):
         # if keep_dims=True and n_sample=1 returns shape: (len(params), 1, n_params)

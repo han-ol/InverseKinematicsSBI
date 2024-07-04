@@ -76,11 +76,16 @@ class SimpleJoint(Component):
         return action
 
 
-class ConstAction(ABC):
+class ConstComponent(Component):
 
     def __init__(self, action):
         self.action = action
 
-    def forward_kinematics(self):
-        return self.action
+    def forward_kinematics(self, params):
+        self.check_params(params)
+
+        action = np.zeros(params.shape + (3,))
+        action[..., :] = self.action
+
+        return action
 
