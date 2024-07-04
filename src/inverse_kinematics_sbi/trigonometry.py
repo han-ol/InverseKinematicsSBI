@@ -20,7 +20,11 @@ def se2_action(y, action):
 
 
 def se2_compose(action1, action2):
-    return np.concatenate((np.cos(action1[..., 2])*action2[..., 0] - np.sin(action2[..., 2])*action2[..., 1], np.sin(action1[..., 2])*action2[..., 0] + np.cos(action1[..., 2])*action2[..., 1]), axis=-1)
+    return np.stack(
+        (np.cos(action1[..., 2])*action2[..., 0] - np.sin(action1[..., 2])*action2[..., 1] + action1[..., 0],
+         np.sin(action1[..., 2])*action2[..., 0] + np.cos(action1[..., 2])*action2[..., 1] + action1[..., 1],
+         action1[..., 2] + action2[..., 2]
+         ), axis=-1)
 
 
 def check_triangle(a, b, c):
