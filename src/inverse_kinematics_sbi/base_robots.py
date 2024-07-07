@@ -13,12 +13,12 @@ class Robot(ABC):
 
     @abstractmethod
     def forward_kinematics(self, params, return_intermediates=False):
-        """Calculates the forward kinematics of the component.
+        """Calculates the forward kinematics of the robot.
 
         Parameters
         ----------
         params : np.array of shape (..., n_params)
-            The parameters for the component.
+            The parameters for the robot.
         return_intermediates : True
             Whether to return intermediate actions.
 
@@ -37,14 +37,27 @@ class Robot(ABC):
 
     def check_params(self, params):
         assert isinstance(params, np.ndarray)
+        assert params.shape[-1] == self.get_n_params()
+        return params
+
+    def check_params_start_position(self, params, start_position):
+        self.check_params(params)
+        if start_position is None:
+            start_position = np.zeros(params.shape[:-1] + (2,))
+        else:
+            assert isinstance(start_position, np.ndarray)
+            assert params.shape[:-1] == start_position.shape[:-1]
+            assert start_position.shape[-1] == 2
+        return params, start_position
 
     def forward(self, params, start_position=None):
-        """Calculates the forward movement of the component for a start_position.
+        """Calculates the position of a point in the end effector frame as seen in the base frame.
+        Thereby, the origin gets mapped to position of the end effector.
 
         Parameters
         ----------
         params : np.array of shape (..., n_params)
-            The parameters for the component.
+            The parameters for the robot.
         start_position: np.array of shape (..., 2)
             The start position that gets moved forward by the component.
 
@@ -53,13 +66,26 @@ class Robot(ABC):
         end_position : np.array of shape (..., 2)
             The position after being moved forward.
         """
-        self.check_params(params)
-        if start_position is None:
-            start_position = np.zeros(params.shape[:-1] + (2,))
-        assert isinstance(start_position, np.ndarray)
-        assert params.shape[:-1] == start_position.shape[:-1]
+        params, start_position = self.check_params_start_position(params, start_position)
         return se2_action(start_position, self.forward_kinematics(params))
 
+    @abstractmethod
+    def forward_jacobian(self, params, start_position=None):
+        """Calculates the jacobian of the forward function with respect to the parameters.
+
+        Parameters
+        ----------
+        params : np.array of shape (..., n_params)
+            The parameters for the robot.
+        start_position: np.array of shape (..., 2)
+            The start position that gets moved forward by the robot.
+
+        Returns
+        -------
+        jacobian : np.array of shape (..., 2, n_params)
+            The jacobian of the forward function.
+        """
+        pass
 
 class Component(Robot):
     """
@@ -75,7 +101,7 @@ class SimpleRail(Component):
         return 1
 
     def forward_kinematics(self, params, return_intermediates=False):
-        self.check_params(params)
+        params = self.check_params(params)
 
         action = np.zeros(params.shape[:-1] + (3,))
         action[..., [0]] = params
@@ -84,6 +110,12 @@ class SimpleRail(Component):
             return np.stack((np.zeros_like(action), action), axis=-2)
         else:
             return action
+
+    def forward_jacobian(self, params, start_position=None):
+        params, start_position = self.check_params_start_position(params, start_position)
+        derivative = np.zeros(params.shape[:-1] + (2, self.get_n_params()))
+        derivative[..., 0, 0] = 1
+        return derivative
 
 
 class SimpleJoint(Component):
@@ -101,6 +133,14 @@ class SimpleJoint(Component):
             return np.stack((np.zeros_like(action), action), axis=-2)
         else:
             return action
+
+    def forward_jacobian(self, params, start_position=None):
+        params, start_position = self.check_params_start_position(params, start_position)
+        derivative = np.zeros(params.shape[:-1] + (2, self.get_n_params()))
+        end_position = self.forward(params, start_position)
+        derivative[..., 0, 0] = - end_position[..., 1]
+        derivative[..., 1, 0] = end_position[..., 0]
+        return derivative
 
 
 class ConstComponent(Component):
@@ -121,4 +161,11 @@ class ConstComponent(Component):
             return np.stack((action,), axis=-2)
         else:
             return action
+
+    def forward_jacobian(self, params, start_position=None):
+        self.check_params(params)
+
+        derivative = np.zeros(params.shape[:-1] + (2, self.get_n_params()))
+
+        return derivative
 

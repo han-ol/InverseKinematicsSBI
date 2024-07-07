@@ -15,8 +15,8 @@ class BenchmarkRobot:
         Parameters
         ----------
         start           : (batch_size, start_coord_dim)
-            Coordinates of where robot is fixated.
-            (0, 0, 0) for a 2D robot indicates x=0, y=0, phi=0
+            Coordinates of where robots.py is fixated.
+            (0, 0, 0) for a 2D robots.py indicates x=0, y=0, phi=0
         params          : (batch_size, n_params)
             Parameters for the components.
         start_coord     : array of shape (batch_size, n_dim), optional

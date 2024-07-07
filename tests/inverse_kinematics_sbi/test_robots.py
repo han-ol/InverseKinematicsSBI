@@ -64,17 +64,31 @@ def test_joint_forward():
 
 
 def test_robot_arm_forward_reduced():
-    robot_arm = RobotArm(components=[Rail(), Joint(), Joint()])
-    robot_arm_0 = RobotArm(components=[Rail(), Joint()])
+    robot_arm = RobotArm(components=[Rail(0), Joint(), Joint()])
+    robot_arm_0 = RobotArm(components=[Rail(0), Joint()])
     robot_arm_1 = RobotArm(components=[Joint(), Joint()])
     params = np.array([[1, np.pi/8, np.pi/8], [-1, -np.pi/8, -np.pi/8]])
     start_indices = np.array([0, 1])
     end_indices = np.array([2, 3])
+    robot_arm.forward_kinematics(params)
     actual_action = robot_arm._forward_kinematics_reduced(params, start_indices, end_indices)
     desired_action_0 = robot_arm_0.forward_kinematics(params[:, 0:2])
     desired_action_1 = robot_arm_1.forward_kinematics(params[:, 1:3])
     np.testing.assert_allclose(actual_action[0], desired_action_0[0], atol=1e-10)
     np.testing.assert_allclose(actual_action[1], desired_action_1[1], atol=1e-10)
+
+
+def test_robot_arm_forward_jacobian():
+    robot_arm = RobotArm(components=[Rail(0), Joint(), Joint()])
+    params = np.array([[1, np.pi/8, np.pi/8], [-1, -np.pi/8, -np.pi/8]])
+    robot_arm.forward_kinematics(params)
+    forward_jacobain = robot_arm.forward_jacobian(params)
+    eps = 1e-7
+    for index in range(params.shape[1]):
+        params_shift = params.copy()
+        params_shift[:, index] += eps
+        partial_derivative = (robot_arm.forward(params_shift) - robot_arm.forward(params))/eps
+        np.testing.assert_allclose(partial_derivative, forward_jacobain[:, :, index], atol=1e-5)
 
 
 

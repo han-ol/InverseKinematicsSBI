@@ -3,7 +3,7 @@ from abc import ABC
 import numpy as np
 
 from src.inverse_kinematics_sbi.base_robots import Component, ConstComponent, SimpleRail, SimpleJoint, Robot
-from src.inverse_kinematics_sbi.trigonometry import se2_compose, se2_action
+from src.inverse_kinematics_sbi.trigonometry import se2_compose, se2_action, so2_action
 
 
 class RobotArm(Robot):
@@ -32,6 +32,14 @@ class RobotArm(Robot):
     def _get_n_params_intermediates(self):
         return list(np.cumsum([0] + [comp.get_n_params() for comp in self.components]))
 
+    def _get_index_is_joint(self):
+        non_const_components = [component for component in self.components if not isinstance(component, ConstComponent)]
+        is_joint = [isinstance(component, SimpleJoint) for component in non_const_components]
+        return np.array(is_joint)
+
+    def _get_index_is_rail(self):
+        return ~self._get_index_is_joint()
+
     def forward_kinematics(self, params, return_intermediates=False):
         self.check_components()
         self.get_n_params()
@@ -53,12 +61,29 @@ class RobotArm(Robot):
         else:
             return current_action
 
+    def forward_jacobian(self, params, start_position=None):
+        if start_position is None:
+            start_position = np.zeros(params.shape[:-1] + (2,))
+        current_position = start_position.copy()
+
+        jacobian = np.zeros(params.shape[:-1] + (2, self.get_n_params()))
+
+        indices = self._get_n_params_intermediates()
+        for i, component in reversed(list(enumerate(self.components))):
+            if indices[i+1] > indices[i]:
+                jacobian[..., :, indices[i]:indices[i+1]] = component.forward_jacobian(params[..., indices[i]:indices[i + 1]], current_position)
+            next_action = component.forward_kinematics(params[..., indices[i]:indices[i + 1]])
+            current_position = se2_action(current_position, next_action)
+            jacobian[..., :, indices[i+1]:] = so2_action(jacobian[..., :, indices[i+1]:], next_action[..., 2, None], axis=-2)
+
+        return jacobian
+
     def _forward_kinematics_reduced(self, params, start_indices, end_indices):
         # call check components before
         current_action = np.zeros(params.shape[:-1] + (3,))
         indices = self._get_n_params_intermediates()
         for i, component in enumerate(self.components):
-            is_turn = (start_indices <= indices[i]) & (indices[i+1] <= end_indices)
+            is_turn = (start_indices < indices[i+1]) & (indices[i+1] <= end_indices)
             component_action = component.forward_kinematics(params[..., indices[i]:indices[i+1]])
             current_action[is_turn] = se2_compose(current_action[is_turn], component_action[is_turn])
         return current_action
@@ -66,7 +91,7 @@ class RobotArm(Robot):
 
 class Rail(RobotArm):
 
-    def __init__(self, rail_angle=0):
+    def __init__(self, rail_angle=np.pi/2):
         before = ConstComponent(action=np.array([0, 0, rail_angle]))
         rail_simple = SimpleRail()
         after = ConstComponent(action=np.array([0, 0, -rail_angle]))

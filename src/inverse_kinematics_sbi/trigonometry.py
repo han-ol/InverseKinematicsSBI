@@ -5,9 +5,21 @@ def so2_inverse(angle):
     return -angle
 
 
-def so2_action(y, angle):
-    # y np.array of shape (..., 2), angle np.array of shape (...,)
-    return np.stack((np.cos(angle)*y[..., 0] - np.sin(angle)*y[..., 1], np.sin(angle)*y[..., 0] + np.cos(angle)*y[..., 1]), axis=-1)
+def so2_action(y, angle, axis=-1):
+    # y np.array of shape (..., 2, ...), angle np.array of shape (...,)
+    if axis < 0:
+        axis = axis + y.ndim
+    index_0 = (slice(None),) * axis + ([0],)
+    index_1 = (slice(None),) * axis + ([1],)
+    angle_index = (slice(None),) * axis + (None,)
+
+    return np.concatenate(
+        (
+            np.cos(angle[angle_index])*y[index_0] - np.sin(angle[angle_index])*y[index_1],
+            np.sin(angle[angle_index])*y[index_0] + np.cos(angle[angle_index])*y[index_1]
+        ),
+        axis=axis
+    )
 
 
 def se2_inverse(action):
@@ -28,7 +40,7 @@ def se2_compose(action1, action2):
 
 
 def check_triangle(a, b, c):
-    return (a < b + c) & (b < a + c) & (c < a + b)
+    return (a <= b + c) & (b <= a + c) & (c <= a + b)
 
 # all for simple joints and simple rails
 
@@ -118,7 +130,7 @@ def check_reachable_rail_rail(action_01_base, action_1e_base, target_0):
     return np.abs(np.linalg.det(transformation_mat)) > 0
 
 
-def get_missing_params_rail_rail(action_01_base, action_1e_base, target_0):
+def get_missing_params_rail_rail(action_01_base, action_1e_base, target_0, index):
     base_vector_0 = np.zeros_like(action_01_base[..., :2])
     base_vector_0[..., 0] = 1
     base_vector_1 = so2_action(base_vector_0, angle=action_01_base[..., 2])

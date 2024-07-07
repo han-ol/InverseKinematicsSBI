@@ -1,8 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from inverse_kinematics_sbi.benchmark_robot import BenchmarkRobot
-from inverse_kinematics_sbi.plot import plot_arms
+from src.inverse_kinematics_sbi.benchmark_robot import BenchmarkRobot
+from src.inverse_kinematics_sbi.plot import plot_arms
 
 arm = BenchmarkRobot()
 
@@ -12,7 +12,7 @@ plot_arms(coords, "prior_benchmark")
 
 y = np.array([1.7, 0.0])
 
-for weights in [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]]:
+for weights in [[1, 1, 1]]:#[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]]:
     print(weights)
     arm.get_maximum_weight(y, weights)
     posterior_params = arm.sample_posterior(y, 1000, weights=weights)
