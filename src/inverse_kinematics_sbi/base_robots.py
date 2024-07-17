@@ -50,7 +50,7 @@ class Robot(ABC):
             assert start_position.shape[-1] == 2
         return params, start_position
 
-    def forward(self, params, start_position=None):
+    def forward(self, params, start_position=None, return_intermediates=False):
         """Calculates the position of a point in the end effector frame as seen in the base frame.
         Thereby, the origin gets mapped to position of the end effector.
 
@@ -60,14 +60,20 @@ class Robot(ABC):
             The parameters for the robot.
         start_position: np.array of shape (..., 2)
             The start position that gets moved forward by the component.
+        return_intermediates : True
+            Whether to return intermediate positions.
 
         Returns
         -------
-        end_position : np.array of shape (..., 2)
-            The position after being moved forward.
+        end_position : np.array of shape (..., 3) or of shape (..., n_params + 1, 3)
+            The final position of the end effector.
+            If return_intermediates returns the n_params + 1 intermediate positions.
         """
         params, start_position = self.check_params_start_position(params, start_position)
-        return se2_action(start_position, self.forward_kinematics(params))
+        if not return_intermediates:
+            return se2_action(start_position, self.forward_kinematics(params, return_intermediates=False))
+        else:
+            return se2_action(start_position[..., None, :], self.forward_kinematics(params, return_intermediates=True))
 
     @abstractmethod
     def forward_jacobian(self, params, start_position=None):

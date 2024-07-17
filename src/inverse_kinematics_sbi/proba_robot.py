@@ -2,6 +2,7 @@ from abc import ABC
 from itertools import combinations
 
 import numpy as np
+from tqdm import tqdm
 
 from src.inverse_kinematics_sbi.trigonometry import se2_action, check_reachable_joint_joint, \
     get_missing_params_joint_joint, check_reachable_joint_rail, check_reachable_rail_joint, check_reachable_rail_rail, \
@@ -33,55 +34,63 @@ class ProbaRobot(ABC):
         elif not keep_dims and n_sample == 1:
             return self.robot.forward(params)
 
-    def sample_posterior(self, observations, n_sample=1, keep_dims=False):
+    def sample_posterior(self, observations, n_sample=1,  keep_dims=False, verbose=False):
         # if keep_dims=True and n_sample=1 returns shape: (len(params), 1, n_params)
         # if keep_dims=True and params of shape (n_params) returns (1, n_sample, n_params)
         self.robot.check_components()
-        samples = np.zeros((len(observations), n_sample, 4))
+        samples = np.zeros((len(observations), n_sample, self.robot.get_n_params()))
         indices = combinations(range(self.robot.get_n_params()), r=2)
         max_n_batches = 1000
         n_propose_total = 1_000_000
+        n_propose_max = 100
         min_propose = 10
-        count_accepted = np.zeros(len(observations))
+        count_accepted = np.zeros(len(observations), dtype=int)
         for i in range(max_n_batches):
             required_mask = count_accepted < n_sample
             if not np.any(required_mask):
                 break
             n_required = np.sum(required_mask)
-            n_propose = min(max(int(n_propose_total/n_required), min_propose), 10 * n_sample)
+            n_propose = min(max(int(n_propose_total/n_required), min_propose), n_propose_max*n_sample)
+
             reach_proposed_params = self._sample_reachable_proposal_distribution(
                 observations=observations[required_mask],
-                n_sample=n_propose
+                n_sample=n_propose,
+                verbose=verbose
             )
 
             weights = self._get_weights(reach_proposed_params)
 
             p = weights / np.max(weights, axis=-1, keepdims=True)
             accepted_mask = np.random.binomial(1, p) == 1
-
             update_samples(samples, reach_proposed_params, count_accepted, accepted_mask, required_mask)
+
+            if verbose:
+                print("Primary Acceptance rate", np.mean(p, axis=1), "Counts", count_accepted)
         return samples
 
-    def _sample_reachable_proposal_distribution(self, observations, n_sample=1000, n_propose_total=1_000_000, indices=None):
+    def _sample_reachable_proposal_distribution(self, observations, n_sample=1000, n_propose_total=1_500_000, indices=None, verbose=False):
         min_propose = 10
         n_params = self.robot.get_n_params()
         parameters = np.zeros((len(observations), n_sample, n_params))
         if indices is None:
             indices = np.array(list(combinations(range(self.robot.get_n_params()), r=2)))
         max_n_batches = 1000
-        counts_accepted = np.zeros(len(observations))
+        counts_accepted = np.zeros(len(observations), dtype=int)
         for i in range(max_n_batches):
             required_mask = counts_accepted < n_sample
             if not np.any(required_mask):
                 break
             n_required = np.sum(required_mask)
-            n_propose = min(max(int(n_propose_total/n_required), min_propose), 10*n_sample)
+            n_propose = min(max(int(n_propose_total/n_required), min_propose),10*n_sample)
             proposed_parameters = self.proposal.rvs((n_required, n_propose, n_params))
             indices_numbers = np.random.choice(len(indices), size=(n_required, n_propose))
             proposed_indices = indices[indices_numbers]
             np.put_along_axis(proposed_parameters, proposed_indices, 0, axis=-1)
             proposed_parameters, is_reachable = self._get_reachable_params(proposed_parameters, proposed_indices, observations[required_mask])
             update_samples(parameters, proposed_parameters, counts_accepted, is_reachable, required_mask)
+
+            if verbose:
+                print("Secondary Acceptance rate", np.mean(is_reachable, axis=1), "Counts", counts_accepted)
 
         return parameters
 

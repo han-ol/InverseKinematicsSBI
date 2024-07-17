@@ -1,11 +1,8 @@
-import sys
-sys.path.append('C:\\Users\\lukas\\PycharmProjects\\inversekinematicssbi_base\\InverseKinematicsSBI')
-from functools import reduce
+
 
 import numpy as np
-import pytest
 
-from src.inverse_kinematics_sbi.base_robots import SimpleRail, SimpleJoint, ConstComponent, Component
+from src.inverse_kinematics_sbi.base_robots import SimpleRail, SimpleJoint, ConstComponent
 from src.inverse_kinematics_sbi.robots import RobotArm, Rail, Joint
 
 

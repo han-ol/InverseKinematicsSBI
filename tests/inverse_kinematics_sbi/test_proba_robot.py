@@ -1,14 +1,9 @@
-import sys
-sys.path.append('C:\\Users\\lukas\\PycharmProjects\\inversekinematicssbi_base\\InverseKinematicsSBI')
+import numpy as np
 from scipy.stats import uniform, norm
 
-from src.inverse_kinematics_sbi.benchmark_robot import BenchmarkRobot
-
 from src.inverse_kinematics_sbi.proba_robot import ProbaRobot
-
-import numpy as np
-
 from src.inverse_kinematics_sbi.robots import RobotArm, Rail, Joint
+
 
 def test_proba_robot__get_reachable_params():
     robot = RobotArm(components=[Joint(), Joint(), Joint()])
@@ -57,11 +52,10 @@ def test_proba_robot_sample_posterior():
     robot = RobotArm(components=[Rail(np.pi/2)] + [Joint(length=length) for length in lengths])
     prior = norm(np.zeros_like(sigmas), sigmas)
     prob_robot = ProbaRobot(robot, prior, None)
-    observations = np.array([[1.5, 0.3]])
-    y = [1.5, 0.3]
-    parameters = prob_robot.sample_posterior(observations, n_sample=10000)[0]
-    arm = BenchmarkRobot()
-    parameters_old = arm.sample_posterior(y, 10000)
+    observations = np.array([[1.2, 0.3]])
+    n_sample = 100000
+    parameters = prob_robot.sample_posterior(observations, n_sample=n_sample)[0]
     first_mean = np.mean(parameters, axis=0)
-    second_mean = np.mean(parameters_old, axis=0)
+    second_mean = np.array([-0.33562082, -0.46447627,  0.48865128,  1.08656594])
+    print(second_mean)
     np.testing.assert_array_almost_equal(first_mean, second_mean, decimal=1)

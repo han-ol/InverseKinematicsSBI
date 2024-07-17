@@ -1,12 +1,9 @@
-import sys
 from functools import reduce
 
 import numpy as np
-import pytest
-sys.path.append('C:\\Users\\lukas\\PycharmProjects\\inversekinematicssbi_base\\InverseKinematicsSBI')
-print(sys.path)
+
 from src.inverse_kinematics_sbi.trigonometry import check_reachable_joint_joint, get_missing_params_joint_joint, \
-    se2_action, se2_inverse, check_reachable_rail_joint, get_missing_params_rail_joint, check_reachable_joint_rail, \
+    se2_action, check_reachable_rail_joint, get_missing_params_rail_joint, check_reachable_joint_rail, \
     get_missing_params_joint_rail, check_reachable_rail_rail, get_missing_params_rail_rail
 
 

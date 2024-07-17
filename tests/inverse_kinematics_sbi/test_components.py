@@ -1,5 +1,3 @@
-import sys
-sys.path.append('C:\\Users\\lukas\\PycharmProjects\\inversekinematicssbi_base\\InverseKinematicsSBI')
 
 import numpy as np
 
