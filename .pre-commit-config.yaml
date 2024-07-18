@@ -42,6 +42,7 @@ repos:
     description: Check yaml files for parseable syntax
   - id: check-added-large-files
     description: Prevent large files from being committed
+    args: ['--maxkb=7000']
   - id: check-merge-conflict
     description: Check for files that contain merge conflict strings
   - id: check-symlinks
