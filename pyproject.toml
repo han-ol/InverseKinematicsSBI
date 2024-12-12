@@ -10,10 +10,12 @@ dependencies = [
   "numpy",
   "scipy",
   "matplotlib",
+  "tqdm",
 ]
 description = "Inverse kinematics benchmarks for simulation-based inference"
 
 [project.optional-dependencies]
+# where to add tox? should be there in order to execute "tox run"
 lint = [
   "mypy==1.10.1",
   "black==24.4.2",

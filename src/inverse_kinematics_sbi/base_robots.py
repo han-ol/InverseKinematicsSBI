@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from src.inverse_kinematics_sbi.trigonometry import se2_action
+from .trigonometry import se2_action
 
 
 class Robot(ABC):
@@ -93,16 +93,17 @@ class Robot(ABC):
         """
         pass
 
+
 class Component(Robot):
     """
     Base Class for all components.
 
     """
+
     pass
 
 
 class SimpleRail(Component):
-
     def get_n_params(self):
         return 1
 
@@ -125,7 +126,6 @@ class SimpleRail(Component):
 
 
 class SimpleJoint(Component):
-
     def get_n_params(self):
         return 1
 
@@ -144,13 +144,12 @@ class SimpleJoint(Component):
         params, start_position = self.check_params_start_position(params, start_position)
         derivative = np.zeros(params.shape[:-1] + (2, self.get_n_params()))
         end_position = self.forward(params, start_position)
-        derivative[..., 0, 0] = - end_position[..., 1]
+        derivative[..., 0, 0] = -end_position[..., 1]
         derivative[..., 1, 0] = end_position[..., 0]
         return derivative
 
 
 class ConstComponent(Component):
-
     def __init__(self, action):
         self.action = action
 
@@ -174,4 +173,3 @@ class ConstComponent(Component):
         derivative = np.zeros(params.shape[:-1] + (2, self.get_n_params()))
 
         return derivative
-

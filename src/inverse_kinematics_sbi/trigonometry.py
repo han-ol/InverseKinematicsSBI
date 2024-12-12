@@ -15,10 +15,10 @@ def so2_action(y, angle, axis=-1):
 
     return np.concatenate(
         (
-            np.cos(angle[angle_index])*y[index_0] - np.sin(angle[angle_index])*y[index_1],
-            np.sin(angle[angle_index])*y[index_0] + np.cos(angle[angle_index])*y[index_1]
+            np.cos(angle[angle_index]) * y[index_0] - np.sin(angle[angle_index]) * y[index_1],
+            np.sin(angle[angle_index]) * y[index_0] + np.cos(angle[angle_index]) * y[index_1],
         ),
-        axis=axis
+        axis=axis,
     )
 
 
@@ -33,16 +33,21 @@ def se2_action(y, action):
 
 def se2_compose(action1, action2):
     return np.stack(
-        (np.cos(action1[..., 2])*action2[..., 0] - np.sin(action1[..., 2])*action2[..., 1] + action1[..., 0],
-         np.sin(action1[..., 2])*action2[..., 0] + np.cos(action1[..., 2])*action2[..., 1] + action1[..., 1],
-         action1[..., 2] + action2[..., 2]
-         ), axis=-1)
+        (
+            np.cos(action1[..., 2]) * action2[..., 0] - np.sin(action1[..., 2]) * action2[..., 1] + action1[..., 0],
+            np.sin(action1[..., 2]) * action2[..., 0] + np.cos(action1[..., 2]) * action2[..., 1] + action1[..., 1],
+            action1[..., 2] + action2[..., 2],
+        ),
+        axis=-1,
+    )
 
 
 def check_triangle(a, b, c):
     return (a <= b + c) & (b <= a + c) & (c <= a + b)
 
+
 # all for simple joints and simple rails
+
 
 def check_reachable_joint_joint(action_01_base, action_1e_base, target_0):
     length_01 = np.linalg.norm(action_01_base[..., :2], axis=-1)
@@ -55,16 +60,18 @@ def get_missing_params_joint_joint(action_01_base, action_1e_base, target_0, ind
     length_01 = np.linalg.norm(action_01_base[..., :2], axis=-1)
     length_1e = np.linalg.norm(action_1e_base[..., :2], axis=-1)
     length_0e = np.linalg.norm(target_0[..., :2], axis=-1)
-    angle_01_0e_desired = (-1)**(index)*np.arccos((length_01**2 + length_0e**2 - length_1e**2)/(2*length_01*length_0e))
+    angle_01_0e_desired = (-1) ** (index) * np.arccos(
+        (length_01**2 + length_0e**2 - length_1e**2) / (2 * length_01 * length_0e)
+    )
     angle_0_0e_desired = np.arctan2(target_0[..., 1], target_0[..., 0])
     angle_0_01_desired = angle_0_0e_desired - angle_01_0e_desired
     angle_0_01_base = np.arctan2(action_01_base[..., 1], action_01_base[..., 0])
-    parameter_0 = angle_0_01_desired - angle_0_01_base # angle_0_base_0_desired
+    parameter_0 = angle_0_01_desired - angle_0_01_base  # angle_0_base_0_desired
 
     target_1 = se2_action(so2_action(target_0, angle=so2_inverse(parameter_0)), action=se2_inverse(action_01_base))
     angle_1_1e_desired = np.arctan2(target_1[..., 1], target_1[..., 0])
     angle_1_1e_base = np.arctan2(action_1e_base[..., 1], action_1e_base[..., 0])
-    parameter_1 = angle_1_1e_desired - angle_1_1e_base # angle_1_base_1_desired
+    parameter_1 = angle_1_1e_desired - angle_1_1e_base  # angle_1_base_1_desired
 
     return parameter_0, parameter_1
 
@@ -83,11 +90,13 @@ def get_missing_params_rail_joint(action_01_base, action_1e_base, target_0, inde
     length_orthogonal = np.abs(orthogonal_to_rail_01_base - orthogonal_to_rail_target_0)
     x_trans_01_base = action_01_base[..., 0]
     length_trans_1e = np.linalg.norm(action_1e_base[..., :2], axis=-1)
-    x_trans_0_frame_1e_desired = (-1)**(index)*np.sqrt(length_trans_1e**2 - length_orthogonal**2)
+    x_trans_0_frame_1e_desired = (-1) ** (index) * np.sqrt(length_trans_1e**2 - length_orthogonal**2)
     x_trans_01_desired = target_0[..., 0] - x_trans_0_frame_1e_desired
     parameter_0 = x_trans_01_desired - x_trans_01_base
 
-    target_1 = se2_action(np.stack((target_0[..., 0] - parameter_0, target_0[..., 1]), axis=-1), action=se2_inverse(action_01_base))
+    target_1 = se2_action(
+        np.stack((target_0[..., 0] - parameter_0, target_0[..., 1]), axis=-1), action=se2_inverse(action_01_base)
+    )
     angle_1_1e_desired = np.arctan2(target_1[..., 1], target_1[..., 0])
     angle_1_1e_base = np.arctan2(action_1e_base[..., 1], action_1e_base[..., 0])
     parameter_1 = angle_1_1e_desired - angle_1_1e_base  # angle_1_base_1_desired
@@ -110,8 +119,8 @@ def get_missing_params_joint_rail(action_01_base, action_1e_base, target_0, inde
     y_trans_0e_base_1 = y_trans_01_base_1 + y_trans_1e_base_1
     length_orthogonal = np.abs(y_trans_0e_base_1)
     length_0e = np.linalg.norm(target_0, axis=-1)
-    angle_0e_1y_desired = (-1)**index*np.arccos(length_orthogonal/length_0e)
-    angle_0e_1_desired = angle_0e_1y_desired - np.pi/2
+    angle_0e_1y_desired = (-1) ** index * np.arccos(length_orthogonal / length_0e)
+    angle_0e_1_desired = angle_0e_1y_desired - np.pi / 2
     angle_0_0e = np.arctan2(target_0[..., 1], target_0[..., 0])
     angle_0_1_desired = angle_0_0e + angle_0e_1_desired
     angle_0_1_base = action_01_base[..., 2]

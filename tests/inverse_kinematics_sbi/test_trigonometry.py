@@ -2,14 +2,22 @@ from functools import reduce
 
 import numpy as np
 
-from src.inverse_kinematics_sbi.trigonometry import check_reachable_joint_joint, get_missing_params_joint_joint, \
-    se2_action, check_reachable_rail_joint, get_missing_params_rail_joint, check_reachable_joint_rail, \
-    get_missing_params_joint_rail, check_reachable_rail_rail, get_missing_params_rail_rail
+from inverse_kinematics_sbi.trigonometry import (
+    check_reachable_joint_joint,
+    check_reachable_joint_rail,
+    check_reachable_rail_joint,
+    check_reachable_rail_rail,
+    get_missing_params_joint_joint,
+    get_missing_params_joint_rail,
+    get_missing_params_rail_joint,
+    get_missing_params_rail_rail,
+    se2_action,
+)
 
 
 def test_joint_joint():
-    action_01_base = np.array([[1, 1, np.pi/4]])
-    action_1e_base = np.array([[0, 1, np.pi/2]])
+    action_01_base = np.array([[1, 1, np.pi / 4]])
+    action_1e_base = np.array([[0, 1, np.pi / 2]])
     target_0 = np.array([[1, 0.5]])
 
     is_reachable = check_reachable_joint_joint(action_01_base, action_1e_base, target_0)
@@ -26,8 +34,8 @@ def test_joint_joint():
 
 
 def test_rail_joint():
-    action_01_base = np.array([[1, 1, np.pi/8]])
-    action_1e_base = np.array([[0, 1, np.pi/2]])
+    action_01_base = np.array([[1, 1, np.pi / 8]])
+    action_1e_base = np.array([[0, 1, np.pi / 2]])
     target_0 = np.array([[1, 0.5]])
 
     is_reachable = check_reachable_rail_joint(action_01_base, action_1e_base, target_0)
@@ -44,8 +52,8 @@ def test_rail_joint():
 
 
 def test_joint_rail():
-    action_01_base = np.array([[1, 1, np.pi/8]])
-    action_1e_base = np.array([[0, 1, np.pi/2]])
+    action_01_base = np.array([[1, 1, np.pi / 8]])
+    action_1e_base = np.array([[0, 1, np.pi / 2]])
     target_0 = np.array([[3, 0.5]])
 
     is_reachable = check_reachable_joint_rail(action_01_base, action_1e_base, target_0)
@@ -62,8 +70,8 @@ def test_joint_rail():
 
 
 def test_rail_rail():
-    action_01_base = np.array([[1, 1, np.pi/4]])
-    action_1e_base = np.array([[0, 1, np.pi/2]])
+    action_01_base = np.array([[1, 1, np.pi / 4]])
+    action_1e_base = np.array([[0, 1, np.pi / 2]])
     target_0 = np.array([[1, 0.5]])
 
     is_reachable = check_reachable_rail_rail(action_01_base, action_1e_base, target_0)

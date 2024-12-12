@@ -4,13 +4,21 @@ from itertools import combinations
 import numpy as np
 from tqdm import tqdm
 
-from src.inverse_kinematics_sbi.trigonometry import se2_action, check_reachable_joint_joint, \
-    get_missing_params_joint_joint, check_reachable_joint_rail, check_reachable_rail_joint, check_reachable_rail_rail, \
-    get_missing_params_joint_rail, get_missing_params_rail_joint, get_missing_params_rail_rail, se2_inverse
+from .trigonometry import (
+    check_reachable_joint_joint,
+    check_reachable_joint_rail,
+    check_reachable_rail_joint,
+    check_reachable_rail_rail,
+    get_missing_params_joint_joint,
+    get_missing_params_joint_rail,
+    get_missing_params_rail_joint,
+    get_missing_params_rail_rail,
+    se2_action,
+    se2_inverse,
+)
 
 
 class ProbaRobot(ABC):
-
     def __init__(self, robot, prior, proposal=None):
         self.robot = robot
         self.prior = prior
@@ -34,7 +42,7 @@ class ProbaRobot(ABC):
         elif not keep_dims and n_sample == 1:
             return self.robot.forward(params)
 
-    def sample_posterior(self, observations, n_sample=1,  keep_dims=False, verbose=False):
+    def sample_posterior(self, observations, n_sample=1, keep_dims=False, verbose=False):
         # if keep_dims=True and n_sample=1 returns shape: (len(params), 1, n_params)
         # if keep_dims=True and params of shape (n_params) returns (1, n_sample, n_params)
         self.robot.check_components()
@@ -50,12 +58,10 @@ class ProbaRobot(ABC):
             if not np.any(required_mask):
                 break
             n_required = np.sum(required_mask)
-            n_propose = min(max(int(n_propose_total/n_required), min_propose), n_propose_max*n_sample)
+            n_propose = min(max(int(n_propose_total / n_required), min_propose), n_propose_max * n_sample)
 
             reach_proposed_params = self._sample_reachable_proposal_distribution(
-                observations=observations[required_mask],
-                n_sample=n_propose,
-                verbose=verbose
+                observations=observations[required_mask], n_sample=n_propose, verbose=verbose
             )
 
             weights = self._get_weights(reach_proposed_params)
@@ -68,7 +74,9 @@ class ProbaRobot(ABC):
                 print("Primary Acceptance rate", np.mean(p, axis=1), "Counts", count_accepted)
         return samples
 
-    def _sample_reachable_proposal_distribution(self, observations, n_sample=1000, n_propose_total=1_500_000, indices=None, verbose=False):
+    def _sample_reachable_proposal_distribution(
+        self, observations, n_sample=1000, n_propose_total=1_500_000, indices=None, verbose=False
+    ):
         min_propose = 10
         n_params = self.robot.get_n_params()
         parameters = np.zeros((len(observations), n_sample, n_params))
@@ -81,12 +89,14 @@ class ProbaRobot(ABC):
             if not np.any(required_mask):
                 break
             n_required = np.sum(required_mask)
-            n_propose = min(max(int(n_propose_total/n_required), min_propose),10*n_sample)
+            n_propose = min(max(int(n_propose_total / n_required), min_propose), 10 * n_sample)
             proposed_parameters = self.proposal.rvs((n_required, n_propose, n_params))
             indices_numbers = np.random.choice(len(indices), size=(n_required, n_propose))
             proposed_indices = indices[indices_numbers]
             np.put_along_axis(proposed_parameters, proposed_indices, 0, axis=-1)
-            proposed_parameters, is_reachable = self._get_reachable_params(proposed_parameters, proposed_indices, observations[required_mask])
+            proposed_parameters, is_reachable = self._get_reachable_params(
+                proposed_parameters, proposed_indices, observations[required_mask]
+            )
             update_samples(parameters, proposed_parameters, counts_accepted, is_reachable, required_mask)
 
             if verbose:
@@ -95,15 +105,29 @@ class ProbaRobot(ABC):
         return parameters
 
     def _get_reachable_params(self, params, indices, target):
-        action_start_to_first = self.robot._forward_kinematics_reduced(params, np.full(params.shape[:-1], -1), indices[:, :, 0])
+        action_start_to_first = self.robot._forward_kinematics_reduced(
+            params, np.full(params.shape[:-1], -1), indices[:, :, 0]
+        )
         action_first_to_second = self.robot._forward_kinematics_reduced(params, indices[:, :, 0], indices[:, :, 1])
-        action_second_to_end = self.robot._forward_kinematics_reduced(params, indices[:, :, 1], np.full(params.shape[:-1], self.robot.get_n_params()))
+        action_second_to_end = self.robot._forward_kinematics_reduced(
+            params, indices[:, :, 1], np.full(params.shape[:-1], self.robot.get_n_params())
+        )
         indices_is_joint = self.robot._get_index_is_joint()[indices]
         indices_is_rail = self.robot._get_index_is_rail()[indices]
         target_first = se2_action(target[:, None, :], se2_inverse(action_start_to_first))
         is_reachable = np.full(params.shape[:-1], False)
-        checks = [check_reachable_joint_joint, check_reachable_joint_rail, check_reachable_rail_joint, check_reachable_rail_rail]
-        get_missings = [get_missing_params_joint_joint, get_missing_params_joint_rail, get_missing_params_rail_joint, get_missing_params_rail_rail]
+        checks = [
+            check_reachable_joint_joint,
+            check_reachable_joint_rail,
+            check_reachable_rail_joint,
+            check_reachable_rail_rail,
+        ]
+        get_missings = [
+            get_missing_params_joint_joint,
+            get_missing_params_joint_rail,
+            get_missing_params_rail_joint,
+            get_missing_params_rail_rail,
+        ]
         first_conds = [indices_is_joint, indices_is_joint, indices_is_rail, indices_is_rail]
         second_conds = [indices_is_joint, indices_is_rail, indices_is_joint, indices_is_rail]
         params_new = params.copy().astype(np.float64)
@@ -113,29 +137,28 @@ class ProbaRobot(ABC):
                 is_reachable_red = check(
                     action_first_to_second[fulfills_cond],
                     action_second_to_end[fulfills_cond],
-                    target_first[fulfills_cond]
+                    target_first[fulfills_cond],
                 )
                 decider = np.random.choice(2, size=np.sum(is_reachable_red))
                 param_first_reachable, param_second_reachable = get_missing(
                     action_first_to_second[fulfills_cond][is_reachable_red],
                     action_second_to_end[fulfills_cond][is_reachable_red],
                     target_first[fulfills_cond][is_reachable_red],
-                    decider
+                    decider,
                 )
                 params_new[
                     fulfills_cond[0][is_reachable_red],
                     fulfills_cond[1][is_reachable_red],
-                    indices[fulfills_cond][:, 0][is_reachable_red]
+                    indices[fulfills_cond][:, 0][is_reachable_red],
                 ] = param_first_reachable
                 params_new[
                     fulfills_cond[0][is_reachable_red],
                     fulfills_cond[1][is_reachable_red],
-                    indices[fulfills_cond][:, 1][is_reachable_red]
+                    indices[fulfills_cond][:, 1][is_reachable_red],
                 ] = param_second_reachable
                 is_reachable[fulfills_cond] = is_reachable_red
 
         return params_new, is_reachable
-
 
     def _get_jacobian_minor(self, params, indices):
         # shape: (..., 2, n_params)
@@ -176,10 +199,11 @@ class ProbaRobot(ABC):
         # shape (n_params, n_propose, n_indices)
         proposal_pdf = self._proposal_pdf_marginal(reach_proposed_params, indices)
 
-        divisor = np.sum(minors*proposal_pdf/map_count[None, None, :], axis=-1)
+        divisor = np.sum(minors * proposal_pdf / map_count[None, None, :], axis=-1)
         divided = self._prior_pdf(reach_proposed_params)
-        weights = divided/divisor
+        weights = divided / divisor
         return weights
+
 
 def update_samples(samples, new_samples, counts, accepted_mask, required_mask=None):
     n_sample = samples.shape[1]
@@ -190,7 +214,9 @@ def update_samples(samples, new_samples, counts, accepted_mask, required_mask=No
     if required_mask is not None:
         index_mask_samples = index_mask_samples & np.tile(required_mask[:, None], (1, n_sample))
     if required_mask is not None:
-        index_mask_new_samples = accepted_mask & (np.cumsum(accepted_mask, axis=1) <= n_sample - counts[required_mask, None])
+        index_mask_new_samples = accepted_mask & (
+            np.cumsum(accepted_mask, axis=1) <= n_sample - counts[required_mask, None]
+        )
     else:
         index_mask_new_samples = accepted_mask & (np.cumsum(accepted_mask, axis=1) <= n_sample - counts[:, None])
     samples[index_mask_samples, :] = new_samples[index_mask_new_samples, :]

@@ -9,9 +9,11 @@ def plot_arms(coords, fig_name=None, density=None):
     n_arms = coords.shape[0]
     for i in range(min(n_arms, 5000)):
         if density is not None:
-            plt.plot(coords[i, :, 0], coords[i, :, 1], ls="-", color=plt.get_cmap('Blues')(density[i]))
+            plt.plot(coords[i, :, 0], coords[i, :, 1], ls="-", color=plt.get_cmap("Blues")(density[i]))
         else:
-            plt.plot(coords[i, :, 0], coords[i, :, 1], ls="-", color=plt.get_cmap('Blues')((i+1)/(min(n_arms, 1000)+1)))
+            plt.plot(
+                coords[i, :, 0], coords[i, :, 1], ls="-", color=plt.get_cmap("Blues")((i + 1) / (min(n_arms, 1000) + 1))
+            )
     plt.gca().set_aspect("equal")
     plt.tight_layout()
     if fig_name is not None:
